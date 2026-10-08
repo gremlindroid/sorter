@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#161412] text-stone-200">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        earth: {
+                            bg: '#161412',
+                            card: 'rgba(38, 35, 32, 0.75)',
+                            border: 'rgba(255, 245, 235, 0.08)',
+                            sand: '#d6c7b2',
+                            terracotta: '#c86d51',
+                            sage: '#7a9a7a',
+                            ivory: '#f5f2eb',
+                            muted: '#a89f91'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #161412; }
+        ::-webkit-scrollbar-thumb { background: #292524; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #44403c; }
+
+        .glass-panel {
+            background: rgba(30, 27, 24, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 245, 235, 0.08);
+        }
+
+
+        input[type=range] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background: rgba(255, 245, 235, 0.1);
+            border-radius: 9999px;
+            height: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #d6c7b2;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #c86d51;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans overflow-x-hidden select-none bg-[#161412] text-stone-200">
+
+    <header class="w-full glass-panel border-b border-stone-800/80 px-6 py-4 z-20 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-stone-900 border border-stone-800 flex items-center justify-center text-stone-300">
+               
+            </div>
+            <div>
+                <h1 class="text-base font-medium tracking-tight text-stone-100">
+                    Sorting Visualizer
+                </h1>
+                <p class="text-[11px] text-stone-400 font-mono tracking-wide">by gremlin</p>
+            </div>
+        </div>
+
+
+        <div class="flex items-center gap-4 sm:gap-8 font-mono text-xs">
+            <div class="flex flex-col items-start">
+                <span class="text-[10px] text-stone-500 uppercase tracking-wider">Comparisons</span>
+                <span id="stat-comparisons" class="text-stone-200 font-semibold">0</span>
+            </div>
+            <div class="flex flex-col items-start">
+                <span class="text-[10px] text-stone-500 uppercase tracking-wider">Swaps / Writes</span>
+                <span id="stat-swaps" class="text-stone-200 font-semibold">0</span>
+            </div>
+            <div class="flex flex-col items-start">
+                <span class="text-[10px] text-stone-500 uppercase tracking-wider">Elapsed</span>
+                <span id="stat-time" class="text-stone-200 font-semibold">0.0s</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 relative flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+        <div class="w-full h-full glass-panel rounded-2xl relative shadow-sm overflow-hidden flex flex-col border border-stone-800/80">
+            <!-- Status Badge -->
+            <div class="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-stone-900/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-stone-800 text-xs font-mono">
+                <span id="algo-status-dot" class="w-2 h-2 rounded-full bg-stone-500"></span>
+                <span id="algo-status-text" class="text-stone-300 font-medium">Idle</span>
+            </div>
+
+            <!-- Main Canvas -->
+            <canvas id="sortCanvas" class="w-full h-full block cursor-pointer"></canvas>
+        </div>
+    </main>
+
+    <footer class="w-full glass-panel border-t border-stone-800/80 p-4 z-20">
+        <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-5">
+            
+            <!-- Left: Controls -->
+            <div class="flex flex-wrap items-center justify-center gap-3 w-full lg:w-auto">
+                <select id="algoSelect" class="bg-stone-900 text-stone-200 border border-stone-800 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-stone-600 hover:border-stone-700 transition-all cursor-pointer">
+                    <option value="quick">Quick Sort</option>
+                    <option value="merge">Merge Sort</option>
+                    <option value="bubble">Bubble Sort</option>
+                    <option value="insertion">Insertion Sort</option>
+                    <option value="heap">Heap Sort</option>
+                </select>
+
+                <div class="flex items-center gap-2">
+                    <button id="btnPlay" class="bg-stone-200 hover:bg-stone-100 text-stone-900 font-semibold px-5 py-2 rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <span>Start</span>
+                    </button>
+                    
+                    <button id="btnPause" disabled class="bg-stone-900 hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed text-stone-200 font-medium px-4 py-2 rounded-xl text-xs transition-all border border-stone-800">
+                        Pause
+                    </button>
+
+                    <button id="btnShuffle" class="bg-stone-900 hover:bg-stone-800 text-stone-200 font-medium px-4 py-2 rounded-xl text-xs transition-all border border-stone-800 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span>Shuffle</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Center: Interactive Sliders -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 w-full lg:w-auto max-w-xl text-xs font-mono">
+                <!-- Size Slider -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between text-stone-400">
+                        <span>ELEMENTS</span>
+                        <span id="val-size" class="text-stone-200 font-medium">60</span>
+                    </div>
+                    <input type="range" id="sliderSize" min="15" max="250" value="60" class="w-full">
+                </div>
+
+                <!-- Speed Slider -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between text-stone-400">
+                        <span>SPEED</span>
+                        <span id="val-speed" class="text-stone-200 font-medium">40x</span>
+                    </div>
+                    <input type="range" id="sliderSpeed" min="1" max="100" value="40" class="w-full">
+                </div>
+
+                <!-- Volume Control -->
+                <div class="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                    <div class="flex justify-between text-stone-400">
+                        <span>VOLUME</span>
+                        <span id="val-vol" class="text-stone-200 font-medium">40%</span>
+                    </div>
+                    <input type="range" id="sliderVol" min="0" max="100" value="40" class="w-full">
+                </div>
+            </div>
+
+            <!-- Right: Scale Selection & Mute Button -->
+            <div class="flex items-center gap-3 w-full lg:w-auto justify-end">
+                <select id="scaleSelect" class="bg-stone-900 text-stone-300 border border-stone-800 rounded-xl px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-stone-600">
+                    <option value="pentatonic" selected>Pentatonic (Woodblock)</option>
+                    <option value="major">Warm Major Scale</option>
+                    <option value="minor">Warm Minor Scale</option>
+                </select>
+
+                <button id="btnMute" class="p-2 bg-stone-900 hover:bg-stone-800 rounded-xl border border-stone-800 text-stone-300 transition-all">
+                    <svg id="iconAudioOn" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                    <svg id="iconAudioOff" class="w-4 h-4 hidden text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+                </button>
+            </div>
+
+        </div>
+    </footer>
+
+    <script>
+        class AcousticWoodSynth {
+            constructor() {
+                this.ctx = null;
+                this.volume = 0.4;
+                this.isMuted = false;
+                this.scaleType = 'pentatonic';
+                
+                this.scales = {
+                    pentatonic: [130.81, 146.83, 164.81, 196.00, 220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00],
+                    major: [130.81, 146.83, 164.81, 174.61, 196.00, 220.00, 246.94, 261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25],
+                    minor: [130.81, 146.83, 155.56, 174.61, 196.00, 207.65, 233.08, 261.63, 293.66, 311.13, 349.23, 392.00, 415.30, 466.16, 523.25]
+                };
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playPitch(normalizedValue, panRatio = 0.5) {
+                if (this.isMuted || this.volume <= 0) return;
+                this.init();
+
+                try {
+                    const scale = this.scales[this.scaleType] || this.scales.pentatonic;
+                    const scaleIndex = Math.floor(normalizedValue * (scale.length - 1));
+                    const freq = scale[Math.min(scaleIndex, scale.length - 1)];
+
+                    const now = this.ctx.currentTime;
+                    
+              
+                    const oscSine = this.ctx.createOscillator();
+                    const oscTri = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(800, now);
+
+                    oscSine.type = 'sine';
+                    oscSine.frequency.setValueAtTime(freq, now);
+
+                    oscTri.type = 'triangle';
+                    oscTri.frequency.setValueAtTime(freq * 2, now); 
+
+                    const attack = 0.008;
+                    const decay = 0.15;
+
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.linearRampToValueAtTime(this.volume * 0.22, now + attack);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + attack + decay);
+
+
+                    if (this.ctx.createStereoPanner) {
+                        const panner = this.ctx.createStereoPanner();
+                        panner.pan.setValueAtTime((panRatio * 1.6) - 0.8, now);
+                        oscSine.connect(panner);
+                        oscTri.connect(panner);
+                        panner.connect(filter);
+                    } else {
+                        oscSine.connect(filter);
+                        oscTri.connect(filter);
+                    }
+
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    oscSine.start(now);
+                    oscTri.start(now);
+                    oscSine.stop(now + attack + decay + 0.05);
+                    oscTri.stop(now + attack + decay + 0.05);
+                } catch (e) {
+
+                }
+            }
+        }
+
+        const canvas = document.getElementById('sortCanvas');
+        const ctx = canvas.getContext('2d');
+        const audioSynth = new AcousticWoodSynth();
+
+        let array = [];
+        let arraySize = 60;
+        let speed = 40;
+        let isRunning = false;
+        let isPaused = false;
+        let animationFrameId = null;
+
+
+        let comparisons = 0;
+        let swaps = 0;
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval = null;
+
+        let sortGenerator = null;
+
+        let activeIndices = {
+            comparing: [],
+            swapping: [],
+            sorted: new Set()
+        };
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function generateNewArray() {
+            resetStats();
+            array = [];
+            activeIndices.sorted.clear();
+            activeIndices.comparing = [];
+            activeIndices.swapping = [];
+            
+            for (let i = 0; i < arraySize; i++) {
+                array.push(0.08 + Math.random() * 0.88);
+            }
+            draw();
+        }
+
+        function resetStats() {
+            comparisons = 0;
+            swaps = 0;
+            elapsedTime = 0;
+            clearInterval(timerInterval);
+            document.getElementById('stat-comparisons').innerText = '0';
+            document.getElementById('stat-swaps').innerText = '0';
+            document.getElementById('stat-time').innerText = '0.0s';
+            updateStatus('Idle', 'stone');
+        }
+
+        function startTimer() {
+            startTime = Date.now() - elapsedTime;
+            timerInterval = setInterval(() => {
+                if (isRunning && !isPaused) {
+                    elapsedTime = Date.now() - startTime;
+                    document.getElementById('stat-time').innerText = (elapsedTime / 1000).toFixed(1) + 's';
+                }
+            }, 100);
+        }
+
+        function updateStatus(text, type) {
+            const dot = document.getElementById('algo-status-dot');
+            const label = document.getElementById('algo-status-text');
+            label.innerText = text;
+
+            if (type === 'active') {
+                dot.className = 'w-2 h-2 rounded-full bg-[#c86d51] animate-pulse';
+            } else if (type === 'done') {
+                dot.className = 'w-2 h-2 rounded-full bg-[#7a9a7a]';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-stone-500';
+            }
+        }
+
+        function draw() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.strokeStyle = 'rgba(255, 245, 235, 0.02)';
+            ctx.lineWidth = 1;
+            for (let y = height / 4; y < height; y += height / 4) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            const barWidth = width / array.length;
+            const padding = array.length > 100 ? 0.5 : 2;
+
+            for (let i = 0; i < array.length; i++) {
+                const val = array[i];
+                const barHeight = val * (height - 50);
+                const x = i * barWidth + padding / 2;
+                const y = height - barHeight - 15;
+                const actualWidth = Math.max(1, barWidth - padding);
+
+
+                // Normal: (#d6c7b2)
+                // Comparison:(#c86d51)
+                // Swap:(#f5f2eb)
+                // Sorted: (#7a9a7a)
+                let fillColor = '#d6c7b2'; 
+
+                if (activeIndices.swapping.includes(i)) {
+                    fillColor = '#f5f2eb';
+                } else if (activeIndices.comparing.includes(i)) {
+                    fillColor = '#c86d51';
+                } else if (activeIndices.sorted.has(i)) {
+                    fillColor = '#7a9a7a';
+                }
+
+                ctx.fillStyle = fillColor;
+                ctx.beginPath();
+                if (actualWidth > 4) {
+                    ctx.roundRect(x, y, actualWidth, barHeight, [3, 3, 0, 0]);
+                } else {
+                    ctx.rect(x, y, actualWidth, barHeight);
+                }
+                ctx.fill();
+            }
+        }
+
+
+        function* bubbleSortGen() {
+            const n = array.length;
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n - i - 1; j++) {
+                    comparisons++;
+                    yield { comparing: [j, j + 1], swapping: [] };
+                    if (array[j] > array[j + 1]) {
+                        [array[j], array[j + 1]] = [array[j + 1], array[j]];
+                        swaps++;
+                        yield { comparing: [], swapping: [j, j + 1] };
+                    }
+                }
+                activeIndices.sorted.add(n - i - 1);
+            }
+        }
+
+
+        function* quickSortGen(start = 0, end = array.length - 1) {
+            if (start >= end) {
+                if (start >= 0 && start < array.length) activeIndices.sorted.add(start);
+                return;
+            }
+            const pivotValue = array[end];
+            let pivotIndex = start;
+
+            for (let i = start; i < end; i++) {
+                comparisons++;
+                yield { comparing: [i, end], swapping: [] };
+                if (array[i] < pivotValue) {
+                    if (i !== pivotIndex) {
+                        [array[i], array[pivotIndex]] = [array[pivotIndex], array[i]];
+                        swaps++;
+                        yield { comparing: [], swapping: [i, pivotIndex] };
+                    }
+                    pivotIndex++;
+                }
+            }
+            [array[pivotIndex], array[end]] = [array[end], array[pivotIndex]];
+            swaps++;
+            yield { comparing: [], swapping: [pivotIndex, end] };
+            activeIndices.sorted.add(pivotIndex);
+
+            yield* quickSortGen(start, pivotIndex - 1);
+            yield* quickSortGen(pivotIndex + 1, end);
+        }
+
+
+        function* insertionSortGen() {
+            const n = array.length;
+            activeIndices.sorted.add(0);
+            for (let i = 1; i < n; i++) {
+                let key = array[i];
+                let j = i - 1;
+                yield { comparing: [i, j], swapping: [] };
+
+                while (j >= 0 && array[j] > key) {
+                    comparisons++;
+                    array[j + 1] = array[j];
+                    swaps++;
+                    yield { comparing: [j], swapping: [j + 1] };
+                    j--;
+                }
+                array[j + 1] = key;
+                for (let k = 0; k <= i; k++) activeIndices.sorted.add(k);
+            }
+        }
+
+
+        function* mergeSortGen(start = 0, end = array.length - 1) {
+            if (start >= end) return;
+            const mid = Math.floor((start + end) / 2);
+            yield* mergeSortGen(start, mid);
+            yield* mergeSortGen(mid + 1, end);
+
+            let left = start;
+            let right = mid + 1;
+            const temp = [];
+
+            while (left <= mid && right <= end) {
+                comparisons++;
+                yield { comparing: [left, right], swapping: [] };
+                if (array[left] <= array[right]) {
+                    temp.push(array[left++]);
+                } else {
+                    temp.push(array[right++]);
+                }
+            }
+            while (left <= mid) temp.push(array[left++]);
+            while (right <= end) temp.push(array[right++]);
+
+            for (let i = 0; i < temp.length; i++) {
+                array[start + i] = temp[i];
+                swaps++;
+                yield { comparing: [], swapping: [start + i] };
+                if (start === 0 && end === array.length - 1) {
+                    activeIndices.sorted.add(start + i);
+                }
+            }
+        }
+
+
+        function* heapSortGen() {
+            const n = array.length;
+
+            function* heapify(size, i) {
+                let largest = i;
+                let left = 2 * i + 1;
+                let right = 2 * i + 2;
+
+                if (left < size) {
+                    comparisons++;
+                    yield { comparing: [left, largest], swapping: [] };
+                    if (array[left] > array[largest]) largest = left;
+                }
+
+                if (right < size) {
+                    comparisons++;
+                    yield { comparing: [right, largest], swapping: [] };
+                    if (array[right] > array[largest]) largest = right;
+                }
+
+                if (largest !== i) {
+                    [array[i], array[largest]] = [array[largest], array[i]];
+                    swaps++;
+                    yield { comparing: [], swapping: [i, largest] };
+                    yield* heapify(size, largest);
+                }
+            }
+
+            for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+                yield* heapify(n, i);
+            }
+
+            for (let i = n - 1; i > 0; i--) {
+                [array[0], array[i]] = [array[i], array[0]];
+                swaps++;
+                yield { comparing: [], swapping: [0, i] };
+                activeIndices.sorted.add(i);
+                yield* heapify(i, 0);
+            }
+            activeIndices.sorted.add(0);
+        }
+
+        function stepAnimation() {
+            if (!isRunning || isPaused) return;
+
+            const stepsPerFrame = Math.max(1, Math.floor(speed / 10));
+
+            for (let s = 0; s < stepsPerFrame; s++) {
+                const step = sortGenerator.next();
+
+                if (step.done) {
+                    finishSorting();
+                    return;
+                }
+
+                const { comparing, swapping } = step.value;
+                activeIndices.comparing = comparing;
+                activeIndices.swapping = swapping;
+
+                const activeBar = swapping[0] ?? comparing[0];
+                if (activeBar !== undefined) {
+                    const panRatio = activeBar / array.length;
+                    audioSynth.playPitch(array[activeBar], panRatio);
+                }
+            }
+
+            document.getElementById('stat-comparisons').innerText = comparisons.toLocaleString();
+            document.getElementById('stat-swaps').innerText = swaps.toLocaleString();
+
+            draw();
+
+            const delay = Math.max(0, 100 - speed * 1);
+            setTimeout(() => {
+                animationFrameId = requestAnimationFrame(stepAnimation);
+            }, delay);
+        }
+
+        function finishSorting() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            updateStatus('Completed', 'done');
+            
+
+            let sweepIdx = 0;
+            const sweepInterval = setInterval(() => {
+                if (sweepIdx >= array.length) {
+                    clearInterval(sweepInterval);
+                    activeIndices.comparing = [];
+                    activeIndices.swapping = [];
+                    draw();
+                    toggleInputs(true);
+                    return;
+                }
+                activeIndices.sorted.add(sweepIdx);
+                audioSynth.playPitch(array[sweepIdx], sweepIdx / array.length);
+                draw();
+                sweepIdx++;
+            }, Math.max(8, 600 / array.length));
+        }
+
+        function startSorting() {
+            if (isRunning && isPaused) {
+                isPaused = false;
+                startTimer();
+                updateStatus('Sorting', 'active');
+                document.getElementById('btnPlay').classList.add('hidden');
+                document.getElementById('btnPause').classList.remove('hidden');
+                stepAnimation();
+                return;
+            }
+
+            const algoChoice = document.getElementById('algoSelect').value;
+            activeIndices.sorted.clear();
+            comparisons = 0;
+            swaps = 0;
+
+            switch (algoChoice) {
+                case 'quick': sortGenerator = quickSortGen(); break;
+                case 'merge': sortGenerator = mergeSortGen(); break;
+                case 'bubble': sortGenerator = bubbleSortGen(); break;
+                case 'insertion': sortGenerator = insertionSortGen(); break;
+                case 'heap': sortGenerator = heapSortGen(); break;
+            }
+
+            isRunning = true;
+            isPaused = false;
+            startTimer();
+            updateStatus('Sorting', 'active');
+            toggleInputs(false);
+
+            stepAnimation();
+        }
+
+        function pauseSorting() {
+            isPaused = true;
+            clearInterval(timerInterval);
+            updateStatus('Paused', 'stone');
+            document.getElementById('btnPause').classList.add('hidden');
+            document.getElementById('btnPlay').classList.remove('hidden');
+            document.getElementById('btnPlay').querySelector('span').innerText = 'Resume';
+        }
+
+        function toggleInputs(enabled) {
+            document.getElementById('algoSelect').disabled = !enabled;
+            document.getElementById('sliderSize').disabled = !enabled;
+            document.getElementById('btnShuffle').disabled = !enabled;
+
+            if (enabled) {
+                document.getElementById('btnPlay').classList.remove('hidden');
+                document.getElementById('btnPlay').querySelector('span').innerText = 'Start';
+                document.getElementById('btnPause').classList.add('hidden');
+                document.getElementById('btnPause').disabled = true;
+            } else {
+                document.getElementById('btnPlay').classList.add('hidden');
+                document.getElementById('btnPause').classList.remove('hidden');
+                document.getElementById('btnPause').disabled = false;
+            }
+        }
+
+        document.getElementById('btnPlay').addEventListener('click', startSorting);
+        document.getElementById('btnPause').addEventListener('click', pauseSorting);
+        document.getElementById('btnShuffle').addEventListener('click', () => {
+            if (!isRunning) generateNewArray();
+        });
+
+        document.getElementById('sliderSize').addEventListener('input', (e) => {
+            arraySize = parseInt(e.target.value);
+            document.getElementById('val-size').innerText = arraySize;
+            if (!isRunning) generateNewArray();
+        });
+
+        document.getElementById('sliderSpeed').addEventListener('input', (e) => {
+            speed = parseInt(e.target.value);
+            document.getElementById('val-speed').innerText = `${speed}x`;
+        });
+
+        document.getElementById('sliderVol').addEventListener('input', (e) => {
+            const vol = parseInt(e.target.value);
+            audioSynth.volume = vol / 100;
+            document.getElementById('val-vol').innerText = `${vol}%`;
+        });
+
+        document.getElementById('scaleSelect').addEventListener('change', (e) => {
+            audioSynth.scaleType = e.target.value;
+        });
+
+        const btnMute = document.getElementById('btnMute');
+        btnMute.addEventListener('click', () => {
+            audioSynth.isMuted = !audioSynth.isMuted;
+            document.getElementById('iconAudioOn').classList.toggle('hidden', audioSynth.isMuted);
+            document.getElementById('iconAudioOff').classList.toggle('hidden', !audioSynth.isMuted);
+        });
+
+        canvas.addEventListener('click', (e) => {
+            audioSynth.init();
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const barIdx = Math.floor((clickX / rect.width) * array.length);
+            if (array[barIdx] !== undefined) {
+                audioSynth.playPitch(array[barIdx], barIdx / array.length);
+            }
+        });
+
+        window.onload = () => {
+            resizeCanvas();
+            generateNewArray();
+        };
+    </script>
+</body>
+</html>
